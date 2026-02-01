@@ -1,11 +1,19 @@
 import * as THREE from "three";
 
-export function createRenderer(container: HTMLElement): THREE.WebGLRenderer {
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap; // мягкие тени
+export function getRenderer(
+  container: HTMLElement,
+  renderer: THREE.WebGLRenderer | null,
+) {
+  if (!renderer) {
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  }
+
+  if (!container.contains(renderer.domElement)) {
+    container.appendChild(renderer.domElement);
+  }
 
   renderer.setSize(container.clientWidth, container.clientHeight);
-  container.appendChild(renderer.domElement);
   return renderer;
 }

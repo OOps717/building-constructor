@@ -1,5 +1,29 @@
 import * as THREE from "three";
 
+function disposeObject(object: THREE.Object3D) {
+  object.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.geometry.dispose();
+      if (Array.isArray(child.material))
+        child.material.forEach((m) => m.dispose());
+      else child.material.dispose();
+    }
+
+    if ((child as any).material?.map) {
+      (child as any).material.map.dispose();
+    }
+  });
+}
+
+export function clearScene(scene: THREE.Scene) {
+  const toRemove = [...scene.children];
+
+  for (const obj of toRemove) {
+    scene.remove(obj);
+    disposeObject(obj);
+  }
+}
+
 function addEdges(mesh: THREE.Mesh) {
   const edges = new THREE.EdgesGeometry(mesh.geometry, 1);
   const material = new THREE.LineBasicMaterial({

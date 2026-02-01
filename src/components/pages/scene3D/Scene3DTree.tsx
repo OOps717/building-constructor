@@ -2,9 +2,10 @@ import * as THREE from "three";
 import type { RefObject } from "react";
 import { SimpleTreeView } from "@mui/x-tree-view";
 import { TreeItem, treeItemClasses } from "@mui/x-tree-view";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { styled, alpha } from "@mui/material/styles";
-import { Typography } from "@mui/material";
+import type { ProjectRuntime } from "../../../App";
+import { EditableTypography } from "../../components/UI/EditableTypography";
 
 type SceneNode = {
   id: string;
@@ -54,51 +55,57 @@ const CustomTreeItem = styled(TreeItem)(({ theme }) => ({
   }),
 }));
 
-function renderNode(node: SceneNode) {
-  return (
-    <CustomTreeItem
-      key={node.id}
-      itemId={node.id}
-      label={`${node.name} (${node.type})`}
-    >
-      <Typography variant="body2">{node.children.map(renderNode)}</Typography>
-    </CustomTreeItem>
-  );
-}
-
-// If an object is added
-// function addObject(parent: THREE.Object3D, child: THREE.Object3D) {
-//   parent.add(child);
-//   updateOutliner();
-// }
-
-// If we selected one objet
-// onItemSelectionToggle={(_, uuid) => {
-//   const obj = scene.getObjectByProperty("uuid", uuid);
-//   if (obj) {
-//     selectObject(obj); // highlight / gizmo
-//   }
-// }}
-
 interface Props {
-  scene3DRef: RefObject<THREE.Scene | null>;
-  sceneReady: boolean;
+  activeProjectRef: RefObject<ProjectRuntime | null>;
+  sceneVersion: number;
 }
 
 function Scene3DTree(props: Props) {
-  const { scene3DRef, sceneReady } = props;
+  const { activeProjectRef, sceneVersion } = props;
   const [scene3DTree, setScene3DTree] = useState<SceneNode | null>(null);
 
+  const updateTree = useCallback(() => {
+    const scene = activeProjectRef.current?.scene;
+    if (!scene) return;
+
+    setScene3DTree(buildScene3DTree(scene));
+  }, []);
+
   useEffect(() => {
-    if (!sceneReady || !scene3DRef.current) return;
-    setScene3DTree(buildScene3DTree(scene3DRef.current));
-  }, [sceneReady]);
+    updateTree();
+  }, [sceneVersion, updateTree]);
+
+  const renderNode = (node: SceneNode) => {
+    return (
+      <CustomTreeItem
+        key={node.id}
+        itemId={node.id}
+        label={
+          <EditableTypography
+            onChange={(newName) => {
+              node.name = newName;
+              const object3D = (
+                activeProjectRef.current?.scene as THREE.Scene
+              ).getObjectByProperty("uuid", node.id);
+              if (object3D) object3D.name = newName;
+              updateTree();
+            }}
+          >
+            {`${node.name} (${node.type})`}
+          </EditableTypography>
+        }
+      >
+        {node.children.map(renderNode)}
+      </CustomTreeItem>
+    );
+  };
 
   return (
     <SimpleTreeView
-      onItemSelectionToggle={(_, itemId) => {
-        console.log("Selected object uuid:", itemId);
-      }}
+      // onItemSelectionToggle={(_, itemId) => {
+      //   console.log("Selected object uuid:", itemId);
+      // }}
+      // onInput={(e) => console.log(e.currentTarget.value)}
       sx={{
         flexGrow: 1,
         overflowY: "auto",

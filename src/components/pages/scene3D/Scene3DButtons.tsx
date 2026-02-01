@@ -8,6 +8,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import ViewInArIcon from "@mui/icons-material/ViewInAr";
 import MenuIcon from "@mui/icons-material/Menu";
 import { useState } from "react";
+import type { ProjectRuntime } from "../../../App";
 
 function savePreview(renderer: THREE.WebGLRenderer) {
   const canvas = renderer.domElement;
@@ -65,19 +66,19 @@ function exportSceneGLTF(scene: THREE.Scene) {
 }
 
 interface Props {
-  scene3DRef: RefObject<THREE.Scene | null>;
+  activeProjectRef: RefObject<ProjectRuntime | null>;
   toggleDrawer: (newOpen: boolean) => void;
 }
 
 function Scene3DButtons(props: Props) {
-  const { scene3DRef, toggleDrawer } = props;
+  const { activeProjectRef, toggleDrawer } = props;
   const navigate = useNavigate();
 
   const actions = [
     {
       icon: <ArrowBackIcon />,
       name: "Back to main menu",
-      onClick: () => navigate("/"),
+      onClick: () => navigate("/home"),
     },
     {
       icon: <ViewInArIcon />,
@@ -90,8 +91,8 @@ function Scene3DButtons(props: Props) {
       icon: <SaveIcon />,
       name: "Save scene to .GLB",
       onClick: () => {
-        if (!scene3DRef.current) return;
-        exportSceneGLB(scene3DRef.current);
+        if (!activeProjectRef.current) return;
+        exportSceneGLB(activeProjectRef.current.scene as THREE.Scene);
       },
     },
   ];

@@ -5,31 +5,45 @@ import { Box } from "@mui/material";
 import Scene3DButtons from "./Scene3DButtons.js";
 import TemplatesDrawer from "./TemplatesDrawer.js";
 import Scene3DTree from "./Scene3DTree.js";
+import { getRenderer } from "../../components/3D/renderer.js";
+import type { RefObject } from "react";
+import type { ProjectRuntime } from "../../../App.js";
 
 interface Props {
-  activeTab: string;
+  rendererRef: RefObject<THREE.WebGLRenderer | null>;
+  activeProjectRef: RefObject<ProjectRuntime | null>;
+  sceneVersion: number;
+  notifySceneChanged: () => void;
 }
 
 function Scene3D(props: Props) {
-  const { activeTab } = props;
-  const [sceneReady, setSceneReady] = useState(false);
+  const { rendererRef, activeProjectRef, sceneVersion, notifySceneChanged } =
+    props;
   const [open, setOpen] = useState(false);
+
   const toggleDrawer = (newOpen: boolean) => {
     setOpen(newOpen);
   };
 
   const threeContainerRef = useRef<HTMLDivElement | null>(null);
-  const scene3DRef = useRef<THREE.Scene | null>(null);
 
+  // Create scene 3D with webGL by passing render (to avoid render recreation)
   useEffect(() => {
     if (!threeContainerRef.current) return;
-    const cleanup = initThree(
+
+    rendererRef.current = getRenderer(
       threeContainerRef.current,
-      activeTab,
-      scene3DRef,
-      () => setSceneReady(true),
+      rendererRef.current,
     );
-    return cleanup;
+
+    const cleanUp = initThree(
+      threeContainerRef.current,
+      rendererRef.current,
+      activeProjectRef,
+    );
+
+    notifySceneChanged();
+    return cleanUp;
   }, []);
 
   return (
@@ -42,7 +56,7 @@ function Scene3D(props: Props) {
       }}
     >
       <Scene3DButtons
-        scene3DRef={scene3DRef}
+        activeProjectRef={activeProjectRef}
         toggleDrawer={toggleDrawer}
       ></Scene3DButtons>
       <TemplatesDrawer
@@ -65,8 +79,8 @@ function Scene3D(props: Props) {
           }}
         />
         <Scene3DTree
-          scene3DRef={scene3DRef}
-          sceneReady={sceneReady}
+          activeProjectRef={activeProjectRef}
+          sceneVersion={sceneVersion}
         ></Scene3DTree>
       </Box>
     </Box>

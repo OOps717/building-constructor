@@ -1,16 +1,33 @@
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useReducer, useRef, useState } from "react";
+import { AppBar, Box, Tabs, Tab, IconButton } from "@mui/material";
+import * as THREE from "three";
+
 import Home from "./components/pages/homePage/Home";
 import Scene3D from "./components/pages/scene3D/Scene3D";
-import { useState, useEffect, useReducer } from "react";
-import { AppBar, Box, Tabs, Tab, IconButton } from "@mui/material";
 
-export type ProjectItem = { type: string; id: string; isOpened: boolean };
+export type ProjectItem = {
+  type: string;
+  id: string;
+  isOpened: boolean;
+  current: boolean;
+};
+
 export type ProjectsAction =
   | { type: "addProject"; item: ProjectItem }
   | { type: "removeProject"; id: string }
-  | { type: "updateProject"; id: string; updates: Partial<ProjectItem> };
+  | { type: "updateProject"; id: string; updates: Partial<ProjectItem> }
+  | { type: "setCurrentProject"; id: string };
+
+export type ProjectRuntime = {
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
+};
 
 function App() {
+  // Initialize main renderer
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+
   // Change the part of projects after backend connection
   const projectsReducer = (
     state: ProjectItem[],
@@ -18,40 +35,58 @@ function App() {
   ): ProjectItem[] => {
     switch (action.type) {
       case "addProject":
-        return [...state, action.item];
+        return [...state.map((p) => ({ ...p, current: false })), action.item];
       case "removeProject":
-        return state.filter((project) => project.id !== action.id);
+        return state.filter((p) => p.id !== action.id);
+      case "setCurrentProject":
+        return state.map((p) =>
+          p.id === action.id
+            ? { ...p, isOpened: true, current: true }
+            : { ...p, current: false },
+        );
       case "updateProject":
-        return state.map((project) =>
-          project.id === action.id
-            ? { ...project, ...action.updates }
-            : project,
+        return state.map((p) =>
+          p.id === action.id ? { ...p, ...action.updates } : p,
         );
       default:
         return state;
     }
   };
+
   const initProjects = (): ProjectItem[] => {
     const saved = localStorage.getItem("projects");
     return saved ? JSON.parse(saved) : [];
   };
+
   const [projects, dispatchProjects] = useReducer(
     projectsReducer,
     [],
     initProjects,
   );
 
+  const projectsRuntimeRef = useRef<Record<string, ProjectRuntime>>({});
+  const activeProjectRef = useRef<ProjectRuntime | null>(null);
+
   const [activeTab, setActiveTab] = useState<string>("home");
+  const [sceneVersion, setSceneVersion] = useState(0);
+  const notifySceneChanged = () => {
+    setSceneVersion((v) => v + 1);
+  };
 
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    if (location.pathname === "/") {
+    if (location.pathname === "/home") {
       setActiveTab("home");
-    } else if (location.pathname.startsWith("/scene3D/")) {
+      return;
+    }
+
+    if (location.pathname.startsWith("/scene3D/")) {
       const id = location.pathname.split("/").pop();
-      if (id) setActiveTab(id);
+      if (id) {
+        setActiveTab(id);
+      }
     }
   }, [location.pathname]);
 
@@ -59,37 +94,70 @@ function App() {
     localStorage.setItem("projects", JSON.stringify(projects));
   }, [projects]);
 
-  const handleChange = (_: React.SyntheticEvent, value: string) => {
-    if (value === "home") {
-      navigate("/");
-    } else {
-      navigate(`/scene3D/${value}`);
+  useEffect(() => {
+    if (activeTab === "home") {
+      activeProjectRef.current = null;
+      return;
     }
+
+    const runtime = projectsRuntimeRef.current[activeTab];
+    if (runtime) {
+      activeProjectRef.current = runtime;
+    }
+    notifySceneChanged();
+  }, [activeTab]);
+
+  useEffect(() => {
+    return () => {
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+        const canvas = rendererRef.current.domElement;
+        canvas.parentElement?.removeChild(canvas);
+        rendererRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleTabChange = (_: React.SyntheticEvent, tabId: string) => {
+    if (tabId === "home") {
+      navigate("/home");
+      return;
+    }
+
+    dispatchProjects({ type: "setCurrentProject", id: tabId });
+    navigate(`/scene3D/${tabId}`);
+    // notifySceneChanged();
   };
 
-  const closeTab = (tabId: string) => {
+  const handleCloseTab = (tabId: string) => {
+    // dispose runtime
+    const runtime = projectsRuntimeRef.current[tabId];
+    if (runtime) {
+      runtime.scene.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+        if ((mesh as any).material) {
+          const m = (mesh as any).material;
+          Array.isArray(m) ? m.forEach((x) => x.dispose()) : m.dispose();
+        }
+      });
+      delete projectsRuntimeRef.current[tabId];
+    }
+
     dispatchProjects({
       type: "updateProject",
       id: tabId,
-      updates: { isOpened: false },
+      updates: { isOpened: false, current: false },
     });
+
     if (activeTab === tabId) {
-      navigate("/");
+      navigate("/home");
       setActiveTab("home");
     }
-    // localStorage.removeItem(`scene-preview:${tabId}`);
-    // localStorage.removeItem(`scene:${tabId}`);
   };
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        width: "100vw",
-      }}
-    >
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <AppBar
         position="static"
         elevation={0}
@@ -97,58 +165,61 @@ function App() {
       >
         <Tabs
           value={activeTab}
-          onChange={handleChange}
+          onChange={handleTabChange}
           variant="scrollable"
           scrollButtons="auto"
         >
-          <Tab
-            key="home"
-            label="Home"
-            value="home"
-            disabled={activeTab === "home"}
-          />
+          <Tab value="home" label="Home" disabled={activeTab === "home"} />
+
           {projects
-            .filter((project) => project.isOpened)
-            .map((project) => (
+            .filter((p) => p.isOpened)
+            .map((p) => (
               <Tab
-                key={project.id}
+                key={p.id}
+                value={p.id}
+                disabled={activeTab === p.id}
                 label={
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <span>{`Scene ${project.id.slice(0, 4)}`}</span>
+                    <span>{`Scene ${p.id.slice(0, 4)}`}</span>
                     <IconButton
                       size="small"
                       onClick={(e) => {
                         e.stopPropagation();
-                        closeTab(project.id);
+                        handleCloseTab(p.id);
                       }}
                     >
                       ✕
                     </IconButton>
                   </Box>
                 }
-                value={project.id}
-                disabled={activeTab === project.id}
               />
             ))}
         </Tabs>
       </AppBar>
-      <Box
-        sx={{
-          flex: 1,
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
+
+      <Box sx={{ flex: 1, position: "relative", overflow: "hidden" }}>
         <Routes>
           <Route
-            path="/"
+            path="/home"
             element={
-              <Home projects={projects} dispatchProjects={dispatchProjects} />
+              <Home
+                projects={projects}
+                dispatchProjects={dispatchProjects}
+                projectsRuntimeRef={projectsRuntimeRef}
+              />
             }
           />
+
           <Route
             path="/scene3D/:sceneId"
-            element={<Scene3D activeTab={activeTab} />}
+            element={
+              <Scene3D
+                rendererRef={rendererRef}
+                activeProjectRef={activeProjectRef}
+                sceneVersion={sceneVersion}
+                notifySceneChanged={notifySceneChanged}
+              />
+            }
           />
         </Routes>
       </Box>

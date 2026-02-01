@@ -3,17 +3,23 @@ import { Box, SpeedDial, SpeedDialAction } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SpeedDialIcon from "@mui/material/SpeedDialIcon";
 import { v4 as uuid } from "uuid";
-import type { Dispatch, SetStateAction } from "react";
-import type { ProjectsAction, ProjectItem } from "../../../App.tsx";
-import Scenes from "./Scenes.tsx";
+import type { Dispatch, RefObject, SetStateAction } from "react";
+import type {
+  ProjectsAction,
+  ProjectItem,
+  ProjectRuntime,
+} from "../../../App.tsx";
+import Projects from "./Projects.tsx";
+import { createScene } from "../../components/3D/scene.ts";
 
 interface Props {
   projects: ProjectItem[];
   dispatchProjects: Dispatch<ProjectsAction>;
+  projectsRuntimeRef: RefObject<Record<string, ProjectRuntime>>;
 }
 
 function Home(props: Props) {
-  const { projects, dispatchProjects } = props;
+  const { projects, dispatchProjects, projectsRuntimeRef } = props;
   const navigate = useNavigate();
 
   const actions = [
@@ -24,9 +30,10 @@ function Home(props: Props) {
         const id = uuid();
         dispatchProjects({
           type: "addProject",
-          item: { type: "scene", id, isOpened: true },
+          item: { type: "scene", id, isOpened: true, current: true },
         });
         navigate(`/scene3D/${id}`);
+        projectsRuntimeRef.current[id] = createScene();
       },
     },
   ];
@@ -39,7 +46,11 @@ function Home(props: Props) {
         height: "100%",
       }}
     >
-      <Scenes projects={projects} dispatchProjects={dispatchProjects}></Scenes>
+      <Projects
+        projects={projects}
+        dispatchProjects={dispatchProjects}
+        projectsRuntimeRef={projectsRuntimeRef}
+      ></Projects>
       <SpeedDial
         ariaLabel="Main SpeedDial"
         sx={{

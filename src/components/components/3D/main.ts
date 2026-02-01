@@ -1,52 +1,37 @@
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { createScene } from "./scene";
-import { createRenderer } from "./renderer";
 import * as THREE from "three";
-
-function disposeObject(object: THREE.Object3D) {
-  object.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      child.geometry.dispose();
-      if (Array.isArray(child.material))
-        child.material.forEach((m) => m.dispose());
-      else child.material.dispose();
-    }
-
-    if ((child as any).material?.map) {
-      (child as any).material.map.dispose();
-    }
-  });
-}
-
-function clearScene(scene: THREE.Scene) {
-  const toRemove = [...scene.children];
-
-  for (const obj of toRemove) {
-    scene.remove(obj);
-    disposeObject(obj);
-  }
-}
+import type { ProjectRuntime } from "../../../App";
+import type { RefObject } from "react";
 
 export function initThree(
   container: HTMLElement,
-  activeTab: string,
-  scene3DRef: React.RefObject<THREE.Scene | null>,
-  onReady?: (scene: THREE.Scene) => void,
+  renderer: THREE.WebGLRenderer,
+  activeProjectRef: React.RefObject<ProjectRuntime | null>,
 ) {
-  const { scene, camera } = createScene();
-  const renderer = createRenderer(container);
-
-  const canvas = renderer.domElement;
+  let controls: OrbitControls | null = null;
+  let lastCamera: THREE.Camera | null = null;
   let running = true;
 
-  const controls = new OrbitControls(camera, canvas);
-
   const resize = () => {
+    const project = activeProjectRef.current;
+    if (!project?.camera) return;
+
     const w = container.clientWidth;
     const h = container.clientHeight;
 
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    if (project.camera instanceof THREE.PerspectiveCamera) {
+      project.camera.aspect = w / h;
+    }
+
+    if (project.camera instanceof THREE.OrthographicCamera) {
+      const aspect = w / h;
+      project.camera.left = -aspect;
+      project.camera.right = aspect;
+      project.camera.top = 1;
+      project.camera.bottom = -1;
+    }
+
+    project.camera.updateProjectionMatrix();
     renderer.setSize(w, h);
   };
   window.addEventListener("resize", resize);
@@ -55,38 +40,39 @@ export function initThree(
   //   console.log();
   // });
 
-  // Not working for now
-  const savePreview = () => {
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-    const canvas = renderer.domElement;
-    renderer.setSize(256, 256);
-    renderer.render(scene, camera);
-    const preview = canvas.toDataURL("image/png");
-    renderer.setSize(width, height);
-    localStorage.setItem(`scene-preview:${activeTab}`, preview);
-  };
+  const animate = () => {
+    if (!running) {
+      lastCamera = null;
+      return;
+    }
 
-  const animate = (now: number) => {
-    if (!running) return;
-    controls.update();
-    renderer.render(scene, camera);
+    const project = activeProjectRef.current;
+    if (!project?.scene || !project.camera) {
+      requestAnimationFrame(animate);
+      return;
+    }
+
+    if (project.camera !== lastCamera) {
+      controls?.dispose();
+      controls = new OrbitControls(project.camera, renderer.domElement);
+      controls.enableDamping = true;
+      resize();
+      lastCamera = project.camera;
+    }
+
+    controls?.update();
+    renderer.render(project.scene, project.camera);
     requestAnimationFrame(animate);
   };
   requestAnimationFrame(animate);
 
-  scene3DRef.current = scene;
-  onReady?.(scene);
   resize();
-  savePreview();
+  // savePreview();
 
   const disposeScene = () => {
-    if (!scene) return;
-    clearScene(scene);
     running = false;
+    controls?.dispose();
     window.removeEventListener("resize", resize);
-    renderer.dispose();
-    container.removeChild(renderer.domElement);
   };
 
   return disposeScene;
