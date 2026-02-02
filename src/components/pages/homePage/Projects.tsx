@@ -2,7 +2,7 @@ import { Box, Card, CardActionArea, Typography, Button } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
 import type { ProjectItem, ProjectsAction } from "../../../App.tsx";
-import type { SceneInteractor } from "../../components/3D/sceneInteractor.ts";
+import type { SceneInteractor } from "../../uiComponents/3D/sceneInteractor.ts";
 import type { Dispatch, RefObject } from "react";
 import DeleteIcon from "@mui/icons-material/Delete";
 

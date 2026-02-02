@@ -4,8 +4,9 @@ import { SimpleTreeView } from "@mui/x-tree-view";
 import { TreeItem, treeItemClasses } from "@mui/x-tree-view";
 import { useCallback, useEffect, useState } from "react";
 import { styled, alpha } from "@mui/material/styles";
-import type { SceneInteractor } from "../../components/3D/sceneInteractor";
-import { EditableTypography } from "../../components/UI/EditableTypography";
+import type { SceneInteractor } from "../../uiComponents/3D/sceneInteractor";
+import { EditableTypography } from "../../uiComponents/UI/EditableTypography";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 type SceneNode = {
   id: string;
@@ -58,10 +59,13 @@ const CustomTreeItem = styled(TreeItem)(({ theme }) => ({
 interface Props {
   activeProjectRef: RefObject<SceneInteractor | null>;
   sceneVersion: number;
+  selectMeshRef: React.RefObject<THREE.Object3D | null>;
+  focusOnObjectRef: React.RefObject<boolean>;
 }
 
 function Scene3DTree(props: Props) {
-  const { activeProjectRef, sceneVersion } = props;
+  const { activeProjectRef, sceneVersion, selectMeshRef, focusOnObjectRef } =
+    props;
   const [scene3DTree, setScene3DTree] = useState<SceneNode | null>(null);
 
   const updateTree = useCallback(() => {
@@ -102,9 +106,23 @@ function Scene3DTree(props: Props) {
 
   return (
     <SimpleTreeView
-      // onItemSelectionToggle={(_, itemId) => {
-      //   console.log("Selected object uuid:", itemId);
-      // }}
+      onItemSelectionToggle={(_, itemId) => {
+        const project = activeProjectRef.current;
+        if (!project) return;
+        const object3D = (project.scene as THREE.Scene).getObjectByProperty(
+          "uuid",
+          itemId,
+        );
+        if (
+          object3D &&
+          object3D !== selectMeshRef.current &&
+          object3D.userData.editable &&
+          !project.isEditorObject(object3D)
+        ) {
+          selectMeshRef.current = object3D;
+          focusOnObjectRef.current = true;
+        }
+      }}
       // onInput={(e) => console.log(e.currentTarget.value)}
       sx={{
         flexGrow: 1,

@@ -7,7 +7,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SaveIcon from "@mui/icons-material/Save";
 import ViewInArIcon from "@mui/icons-material/ViewInAr";
 import MenuIcon from "@mui/icons-material/Menu";
-import type { SceneInteractor } from "../../components/3D/sceneInteractor";
+import type { SceneInteractor } from "../../uiComponents/3D/sceneInteractor";
 
 function savePreview(renderer: THREE.WebGLRenderer) {
   const canvas = renderer.domElement;

@@ -5,7 +5,7 @@ import SpeedDialIcon from "@mui/material/SpeedDialIcon";
 import { v4 as uuid } from "uuid";
 import type { Dispatch, RefObject } from "react";
 import type { ProjectsAction, ProjectItem } from "../../../App.tsx";
-import { SceneInteractor } from "../../components/3D/sceneInteractor.ts";
+import { SceneInteractor } from "../../uiComponents/3D/sceneInteractor.ts";
 import Projects from "./Projects.tsx";
 
 interface Props {

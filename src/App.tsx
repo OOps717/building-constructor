@@ -7,7 +7,7 @@ import {
 } from "react-router-dom";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { AppBar, Box, Tabs, Tab, IconButton } from "@mui/material";
-import type { SceneInteractor } from "./components/components/3D/sceneInteractor";
+import type { SceneInteractor } from "./components/uiComponents/3D/sceneInteractor";
 import * as THREE from "three";
 
 import Home from "./components/pages/homePage/Home";
@@ -71,8 +71,21 @@ function App() {
     initProjects,
   );
 
+  const objModulesURL = import.meta.glob("/src/assets/templates/**/*.obj", {
+    query: "?url",
+    import: "default",
+    eager: true,
+  });
+
   const projectsRuntimeRef = useRef<Record<string, SceneInteractor>>({});
   const activeProjectRef = useRef<SceneInteractor | null>(null);
+  const objModulesRef = useRef<Record<string, string>>({});
+  const objCacheRef = useRef<Map<string, THREE.Group>>(new Map());
+
+  Object.entries(objModulesURL).forEach(([path, value]) => {
+    const name = path.split("/").pop()?.replace(".obj", "") || "undefined";
+    objModulesRef.current[name] = value as string;
+  });
 
   const [activeTab, setActiveTab] = useState<string>("home");
   const [sceneVersion, setSceneVersion] = useState(0);
@@ -224,6 +237,8 @@ function App() {
               <Scene3D
                 rendererRef={rendererRef}
                 activeProjectRef={activeProjectRef}
+                objModulesRef={objModulesRef}
+                objCacheRef={objCacheRef}
                 sceneVersion={sceneVersion}
                 notifySceneChanged={notifySceneChanged}
               />
