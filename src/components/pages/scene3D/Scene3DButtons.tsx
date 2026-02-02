@@ -7,8 +7,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SaveIcon from "@mui/icons-material/Save";
 import ViewInArIcon from "@mui/icons-material/ViewInAr";
 import MenuIcon from "@mui/icons-material/Menu";
-import { useState } from "react";
-import type { ProjectRuntime } from "../../../App";
+import type { SceneInteractor } from "../../components/3D/sceneInteractor";
 
 function savePreview(renderer: THREE.WebGLRenderer) {
   const canvas = renderer.domElement;
@@ -66,7 +65,7 @@ function exportSceneGLTF(scene: THREE.Scene) {
 }
 
 interface Props {
-  activeProjectRef: RefObject<ProjectRuntime | null>;
+  activeProjectRef: RefObject<SceneInteractor | null>;
   toggleDrawer: (newOpen: boolean) => void;
 }
 

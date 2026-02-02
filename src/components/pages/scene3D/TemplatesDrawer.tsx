@@ -7,10 +7,11 @@ const images = import.meta.glob("../../../assets/primitives/*.png", {
 interface Props {
   open: boolean;
   toggleDrawer: (newOpen: boolean) => void;
+  selectedToDrop: React.RefObject<string | null | undefined>;
 }
 
 export default function TemplatesDrawer(props: Props) {
-  const { open, toggleDrawer } = props;
+  const { open, toggleDrawer, selectedToDrop } = props;
 
   const meshPrimitives = Object.entries(images).map(([path, module]) => ({
     name: path.split("/").pop()?.replace(".png", ""),
@@ -33,9 +34,11 @@ export default function TemplatesDrawer(props: Props) {
         {meshPrimitives.map((mesh) => (
           <Button
             key={mesh.name}
-            onClick={() => console.log(mesh.name)}
-            onPointerDown={() => console.log(mesh.name)}
-            onPointerUp={() => console.log("button released")}
+            onClick={() => {
+              selectedToDrop.current = mesh.name;
+            }}
+            // onPointerDown={() => console.log(mesh.name)}
+            // onPointerUp={() => console.log("button released")}
             sx={{
               display: "flex",
               flexDirection: "column",

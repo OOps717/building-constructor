@@ -1,6 +1,13 @@
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  useLocation,
+  useNavigate,
+  Navigate,
+} from "react-router-dom";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { AppBar, Box, Tabs, Tab, IconButton } from "@mui/material";
+import type { SceneInteractor } from "./components/components/3D/sceneInteractor";
 import * as THREE from "three";
 
 import Home from "./components/pages/homePage/Home";
@@ -64,8 +71,8 @@ function App() {
     initProjects,
   );
 
-  const projectsRuntimeRef = useRef<Record<string, ProjectRuntime>>({});
-  const activeProjectRef = useRef<ProjectRuntime | null>(null);
+  const projectsRuntimeRef = useRef<Record<string, SceneInteractor>>({});
+  const activeProjectRef = useRef<SceneInteractor | null>(null);
 
   const [activeTab, setActiveTab] = useState<string>("home");
   const [sceneVersion, setSceneVersion] = useState(0);
@@ -199,6 +206,7 @@ function App() {
 
       <Box sx={{ flex: 1, position: "relative", overflow: "hidden" }}>
         <Routes>
+          <Route path="/" element={<Navigate to="/home" replace />} />
           <Route
             path="/home"
             element={

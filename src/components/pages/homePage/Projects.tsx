@@ -1,13 +1,8 @@
 import { Box, Card, CardActionArea, Typography, Button } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { clearScene } from "../../components/3D/scene.ts";
-import type * as THREE from "three";
 
-import type {
-  ProjectItem,
-  ProjectRuntime,
-  ProjectsAction,
-} from "../../../App.tsx";
+import type { ProjectItem, ProjectsAction } from "../../../App.tsx";
+import type { SceneInteractor } from "../../components/3D/sceneInteractor.ts";
 import type { Dispatch, RefObject } from "react";
 import DeleteIcon from "@mui/icons-material/Delete";
 
@@ -18,7 +13,7 @@ function getProjectPreview(sceneId: string): string | null {
 interface Props {
   projects: ProjectItem[];
   dispatchProjects: Dispatch<ProjectsAction>;
-  projectsRuntimeRef: RefObject<Record<string, ProjectRuntime>>;
+  projectsRuntimeRef: RefObject<Record<string, SceneInteractor>>;
 }
 
 function Projects(props: Props) {
@@ -34,9 +29,7 @@ function Projects(props: Props) {
   };
 
   const handleDeleteButtonClick = (tab: ProjectItem) => {
-    if (projectsRuntimeRef.current[tab.id]?.scene) {
-      clearScene(projectsRuntimeRef.current[tab.id].scene as THREE.Scene);
-    }
+    projectsRuntimeRef.current[tab.id]?.clearScene();
     dispatchProjects({
       type: "removeProject",
       id: tab.id,

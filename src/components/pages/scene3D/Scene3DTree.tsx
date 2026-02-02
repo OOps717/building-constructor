@@ -4,7 +4,7 @@ import { SimpleTreeView } from "@mui/x-tree-view";
 import { TreeItem, treeItemClasses } from "@mui/x-tree-view";
 import { useCallback, useEffect, useState } from "react";
 import { styled, alpha } from "@mui/material/styles";
-import type { ProjectRuntime } from "../../../App";
+import type { SceneInteractor } from "../../components/3D/sceneInteractor";
 import { EditableTypography } from "../../components/UI/EditableTypography";
 
 type SceneNode = {
@@ -56,7 +56,7 @@ const CustomTreeItem = styled(TreeItem)(({ theme }) => ({
 }));
 
 interface Props {
-  activeProjectRef: RefObject<ProjectRuntime | null>;
+  activeProjectRef: RefObject<SceneInteractor | null>;
   sceneVersion: number;
 }
 

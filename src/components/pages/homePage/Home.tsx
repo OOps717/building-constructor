@@ -3,19 +3,15 @@ import { Box, SpeedDial, SpeedDialAction } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SpeedDialIcon from "@mui/material/SpeedDialIcon";
 import { v4 as uuid } from "uuid";
-import type { Dispatch, RefObject, SetStateAction } from "react";
-import type {
-  ProjectsAction,
-  ProjectItem,
-  ProjectRuntime,
-} from "../../../App.tsx";
+import type { Dispatch, RefObject } from "react";
+import type { ProjectsAction, ProjectItem } from "../../../App.tsx";
+import { SceneInteractor } from "../../components/3D/sceneInteractor.ts";
 import Projects from "./Projects.tsx";
-import { createScene } from "../../components/3D/scene.ts";
 
 interface Props {
   projects: ProjectItem[];
   dispatchProjects: Dispatch<ProjectsAction>;
-  projectsRuntimeRef: RefObject<Record<string, ProjectRuntime>>;
+  projectsRuntimeRef: RefObject<Record<string, SceneInteractor>>;
 }
 
 function Home(props: Props) {
@@ -33,7 +29,7 @@ function Home(props: Props) {
           item: { type: "scene", id, isOpened: true, current: true },
         });
         navigate(`/scene3D/${id}`);
-        projectsRuntimeRef.current[id] = createScene();
+        projectsRuntimeRef.current[id] = new SceneInteractor();
       },
     },
   ];
