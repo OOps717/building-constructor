@@ -2,7 +2,6 @@ import * as THREE from "three";
 import SceneHandler from "./canvasEventHandlers.ts";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 
 import type { SceneInteractor } from "./sceneInteractor.ts";
 import type { RefObject } from "react";

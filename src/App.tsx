@@ -130,7 +130,7 @@ function App() {
   useEffect(() => {
     return () => {
       if (rendererRef.current) {
-        rendererRef.current.dispose();
+        // rendererRef.current.dispose();
         const canvas = rendererRef.current.domElement;
         canvas.parentElement?.removeChild(canvas);
         rendererRef.current = null;

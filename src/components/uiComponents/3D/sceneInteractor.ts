@@ -13,6 +13,7 @@ export class SceneInteractor {
   public mouseNDC: THREE.Vector2;
   public tmpMesh: THREE.Mesh | THREE.Object3D | THREE.Group | null;
   public materials: THREE.Material[];
+  private intersectableMeshes: Set<THREE.Mesh>;
 
   constructor() {
     this.materials = [
@@ -28,7 +29,25 @@ export class SceneInteractor {
     this.camera = new THREE.Camera();
 
     this.tmpMesh = null;
+    this.intersectableMeshes = new Set<THREE.Mesh>();
+
     this.createScene();
+  }
+
+  registerSelectableObject(root: THREE.Object3D) {
+    root.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.userData.selectable !== false) {
+        this.intersectableMeshes.add(child);
+      }
+    });
+  }
+
+  deregisterSelectableObject(root: THREE.Object3D) {
+    root.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        this.intersectableMeshes.delete(child);
+      }
+    });
   }
 
   addEdges(mesh: THREE.Mesh) {
@@ -39,6 +58,7 @@ export class SceneInteractor {
     });
     const line = new THREE.LineSegments(edges, material);
     line.name = "__edges__";
+    line.userData.selectable = false;
     line.userData.editable = false;
     mesh.add(line);
   }
@@ -70,9 +90,9 @@ export class SceneInteractor {
     }
 
     mesh = new THREE.Mesh(geometry, material ?? this.materials[0]);
-
     this.setBoundingObjects(mesh);
     mesh.userData.editable = true;
+    this.registerSelectableObject(mesh);
 
     name
       ? (mesh.name = name)
@@ -130,6 +150,7 @@ export class SceneInteractor {
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
     plane.userData.editable = false;
     plane.rotateX(-Math.PI / 2);
+    this.registerSelectableObject(plane);
     this.scene.add(plane);
   }
 
@@ -138,6 +159,7 @@ export class SceneInteractor {
     offset: number,
     orbitControls: OrbitControls,
   ) {
+    if (!mesh.userData.boundingSphere) this.setBoundingObjects(mesh);
     const sphere = mesh.userData.boundingSphere;
     const target = sphere.center.clone();
 
@@ -177,16 +199,10 @@ export class SceneInteractor {
       this.tmpMesh.userData.editable = false;
     }
 
-    let objectsToCheck: THREE.Object3D[] = [];
-    this.scene.traverse((obj) => {
-      if (
-        obj !== this.tmpMesh &&
-        !this.tmpMesh?.getObjectById(obj.id) &&
-        !obj.name.includes("__edges__") &&
-        !this.isEditorObject(obj)
-      )
-        objectsToCheck.push(obj);
-    });
+    const objectsToCheck = Array.from(this.intersectableMeshes).filter(
+      (obj) => obj !== this.tmpMesh && !this.tmpMesh?.getObjectById(obj.id),
+    );
+
     const hit = this.raycastFromMouse(event, canvas, {
       radius,
       objectsToCheck,
@@ -219,17 +235,9 @@ export class SceneInteractor {
 
       this.scene.add(this.tmpMesh);
     }
-    const objectsToCheck: THREE.Object3D[] = [];
-    this.scene.traverse((obj) => {
-      if (
-        obj !== this.tmpMesh &&
-        !this.tmpMesh?.getObjectById(obj.id) &&
-        !obj.name.includes("__edges__") &&
-        !this.isEditorObject(obj)
-      ) {
-        objectsToCheck.push(obj);
-      }
-    });
+    const objectsToCheck = Array.from(this.intersectableMeshes).filter(
+      (obj) => obj !== this.tmpMesh && !this.tmpMesh?.getObjectById(obj.id),
+    );
 
     const hit = this.raycastFromMouse(event, canvas, {
       radius,
@@ -256,6 +264,7 @@ export class SceneInteractor {
       }
     });
 
+    this.registerSelectableObject(mesh);
     mesh.userData.editable = true;
 
     this.scene.add(mesh);
@@ -266,6 +275,7 @@ export class SceneInteractor {
 
   removeTmpObject() {
     if (this.tmpMesh) {
+      this.deregisterSelectableObject(this.tmpMesh);
       this.scene.remove(this.tmpMesh);
       this.disposeObject(this.tmpMesh);
       this.tmpMesh = null;
@@ -288,19 +298,23 @@ export class SceneInteractor {
     return false;
   }
 
-  selectMeshToModify(event: MouseEvent, canvas: HTMLCanvasElement) {
-    let objectsToCheck: THREE.Object3D[] = [];
+  findEditableRoot(obj: THREE.Object3D | null): THREE.Object3D | null {
+    let current = obj;
+    while (current) {
+      if (current.userData.editable === true) return current;
+      current = current.parent;
+    }
+    return null;
+  }
 
-    this.scene.traverse((obj) => {
-      if (obj.userData.editable && !this.isEditorObject(obj))
-        objectsToCheck.push(obj);
+  selectMeshToModify(event: MouseEvent, canvas: HTMLCanvasElement) {
+    const hit = this.raycastFromMouse(event, canvas, {
+      objectsToCheck: Array.from(this.intersectableMeshes),
     });
 
-    const result = this.raycastFromMouse(event, canvas, {
-      objectsToCheck,
-    })?.object;
-    if (result?.parent?.isGroup) return result.parent;
-    return result;
+    if (!hit) return null;
+
+    return this.findEditableRoot(hit.object);
   }
 
   raycastFromMouse(
@@ -316,8 +330,7 @@ export class SceneInteractor {
     this.raycaster.far = options?.radius ?? Infinity;
     this.raycaster.near = 0;
     const hits = this.raycaster.intersectObjects(
-      options?.objectsToCheck ??
-        this.scene.children.filter((obj) => !this.isEditorObject(obj)),
+      options?.objectsToCheck ?? Array.from(this.intersectableMeshes),
       options?.objectsToCheck ? false : true,
     );
 
@@ -355,17 +368,9 @@ export class SceneInteractor {
     const direction = new THREE.Vector3(0, -1, 0);
 
     this.raycaster.set(origin, direction);
-    let objectsToCheck: THREE.Object3D[] = [];
-    this.scene.traverse((obj) => {
-      if (
-        obj !== object &&
-        !object.getObjectById(obj.id) &&
-        !obj.name.includes("__edges__") &&
-        !this.isEditorObject(obj)
-      ) {
-        objectsToCheck.push(obj);
-      }
-    });
+    const objectsToCheck = Array.from(this.intersectableMeshes).filter(
+      (obj) => obj !== object && !object.getObjectById(obj.id),
+    );
 
     const hits = this.raycaster.intersectObjects(objectsToCheck, false);
 
@@ -376,6 +381,7 @@ export class SceneInteractor {
   }
 
   disposeObject(object: THREE.Object3D) {
+    this.deregisterSelectableObject(object);
     object.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.geometry.dispose();
@@ -397,6 +403,7 @@ export class SceneInteractor {
   }
 
   clearScene() {
+    this.deregisterSelectableObject(this.scene);
     const toRemove = [...this.scene.children];
 
     for (const obj of toRemove) {

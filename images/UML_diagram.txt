@@ -1,0 +1,119 @@
+@startuml
+hide circle
+skinparam linetype ortho
+
+entity projects {
+  id : TEXT <<PK>>
+  name : TEXT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity assets {
+  id : TEXT <<PK>>
+  name : TEXT
+  type : TEXT
+  source : TEXT
+  hash : TEXT
+  created_at : TIMESTAMP
+}
+
+entity scene_objects {
+  id : TEXT <<PK>>
+  project_id : TEXT <<FK>>
+  asset_id : TEXT <<FK>>
+  parent_id : TEXT <<FK>>
+  name : TEXT
+
+  pos_x : REAL
+  pos_y : REAL
+  pos_z : REAL
+
+  rot_x : REAL
+  rot_y : REAL
+  rot_z : REAL
+
+  scale_x : REAL
+  scale_y : REAL
+  scale_z : REAL
+
+  editable : BOOLEAN
+  visible : BOOLEAN
+  created_at : TIMESTAMP
+}
+
+entity materials {
+  id : TEXT <<PK>>
+  project_id : TEXT <<FK>>
+
+  type : TEXT
+  color : TEXT
+  roughness : REAL
+  metalness : REAL
+  opacity : REAL
+  transparent : BOOLEAN
+  side : TEXT
+
+  created_at : TIMESTAMP
+}
+
+entity object_materials {
+  object_id : TEXT <<FK>>
+  material_id : TEXT <<FK>>
+  slot : INTEGER
+}
+
+entity textures {
+  id : TEXT <<PK>>
+  type : TEXT
+  source : TEXT
+  created_at : TIMESTAMP
+}
+
+entity material_textures {
+  material_id : TEXT <<FK>>
+  texture_id : TEXT <<FK>>
+  channel : TEXT
+}
+
+entity cameras {
+  project_id : TEXT <<PK, FK>>
+  type : TEXT
+
+  pos_x : REAL
+  pos_y : REAL
+  pos_z : REAL
+
+  target_x : REAL
+  target_y : REAL
+  target_z : REAL
+
+  fov : REAL
+  zoom : REAL
+}
+
+entity object_metadata {
+  object_id : TEXT <<PK, FK>>
+  data : JSON
+}
+
+' =========================
+' Relationships + semantics
+' =========================
+
+projects ||--o{ scene_objects : contains
+projects ||--o{ materials : owns
+projects ||--|| cameras : has
+
+assets ||--o{ scene_objects : instanced_by
+
+scene_objects ||--o{ scene_objects : parent
+scene_objects ||--o{ object_materials : uses
+scene_objects ||--|| object_metadata : has
+
+materials ||--o{ object_materials : assigned_to
+materials ||--o{ material_textures : has
+
+textures ||--o{ material_textures : mapped_to
+
+@enduml

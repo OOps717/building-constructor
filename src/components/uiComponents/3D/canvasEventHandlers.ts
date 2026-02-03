@@ -104,7 +104,9 @@ export default class SceneHandler {
       }
 
       this.selectMeshRef.current = selection;
-      this.transformControlsRef.current?.attach(this.selectMeshRef.current);
+
+      if (selection)
+        this.transformControlsRef.current?.attach(this.selectMeshRef.current);
     }
   }
 
