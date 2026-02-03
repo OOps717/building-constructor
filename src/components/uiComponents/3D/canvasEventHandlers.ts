@@ -100,6 +100,7 @@ export default class SceneHandler {
         this.transformControlsRef.current.showX = false;
         this.transformControlsRef.current.showY = false;
         this.transformControlsRef.current.showZ = false;
+        this.pressCount = 0;
         this.focusOnObjectRef.current = true;
       }
 
@@ -129,6 +130,8 @@ export default class SceneHandler {
       )
         return;
       let nextMode: "translate" | "rotate" | "scale" | null = null;
+
+      console.log(this.pressCount);
 
       if (key === "t") nextMode = "translate";
       if (key === "r") nextMode = "rotate";

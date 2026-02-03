@@ -87,10 +87,17 @@ export function initThree(params: scene3DControllers) {
       transformControlsRef.current.showY = false;
       transformControlsRef.current.showZ = false;
 
+      // orbitControlsRef.current.addEventListener("start", () => {
+      //   console.log("dragging");
+      //   focusOnObjectRef.current = false;
+      // });
+
+      // orbitControlsRef.current.addEventListener("end", () => {
+      //   isOrbitDragging = false;
+      // });
+
       transformControlsRef.current.addEventListener("dragging-changed", (e) => {
         isDragging = e.value as boolean;
-        if (selectMeshRef.current)
-          project.setBoundingObjects(selectMeshRef.current);
         if (orbitControlsRef.current)
           orbitControlsRef.current.enabled = !e.value;
       });
@@ -124,10 +131,7 @@ export function initThree(params: scene3DControllers) {
         orbitControlsRef.current,
       );
 
-      if (
-        cameraDistance - OFFSET_TO_SPHERE < 3 &&
-        orbitControlsDistance < 0.5
-      ) {
+      if (cameraDistance - OFFSET_TO_SPHERE < 4 && orbitControlsDistance < 1) {
         focusOnObjectRef.current = false;
       }
     }

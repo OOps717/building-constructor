@@ -90,7 +90,6 @@ export class SceneInteractor {
     }
 
     mesh = new THREE.Mesh(geometry, material ?? this.materials[0]);
-    this.setBoundingObjects(mesh);
     mesh.userData.editable = true;
     this.registerSelectableObject(mesh);
 
@@ -101,16 +100,6 @@ export class SceneInteractor {
     this.scene.add(mesh);
 
     return mesh;
-  }
-
-  setBoundingObjects(mesh: THREE.Object3D) {
-    const boundingBox = new THREE.Box3().setFromObject(mesh);
-    mesh.userData.boundingBox = boundingBox;
-    mesh.userData.boundingBoxSize = boundingBox.getSize(new THREE.Vector3());
-
-    const boundingSphere = new THREE.Sphere();
-    mesh.userData.boundingSphere =
-      boundingBox.getBoundingSphere(boundingSphere);
   }
 
   createScene() {
@@ -139,7 +128,6 @@ export class SceneInteractor {
 
     const primitive = this.addBasicPrimitive("cube");
     primitive.translateY(4);
-    this.setBoundingObjects(primitive);
 
     // Plane for Editor
     const planeGeometry = new THREE.PlaneGeometry(500, 500, 20, 20);
@@ -159,8 +147,11 @@ export class SceneInteractor {
     offset: number,
     orbitControls: OrbitControls,
   ) {
-    if (!mesh.userData.boundingSphere) this.setBoundingObjects(mesh);
-    const sphere = mesh.userData.boundingSphere;
+    const boundingBox = new THREE.Box3().setFromObject(mesh);
+
+    const tmpSphere = new THREE.Sphere();
+    const boundingSphere = boundingBox.getBoundingSphere(tmpSphere);
+    const sphere = boundingSphere;
     const target = sphere.center.clone();
 
     const dir = new THREE.Vector3()
@@ -207,6 +198,16 @@ export class SceneInteractor {
       radius,
       objectsToCheck,
     });
+
+    const desiredPosition = this.raycaster.ray.origin
+      .clone()
+      .add(this.raycaster.ray.direction.clone().multiplyScalar(radius));
+    this.tmpMesh.position.copy(desiredPosition);
+
+    if (hit) {
+      this.snapToSurface(this.tmpMesh, hit);
+    }
+
     if (hit) this.snapToSurface(this.tmpMesh, hit);
     else {
       const position = this.raycaster.ray.origin
@@ -268,7 +269,6 @@ export class SceneInteractor {
     mesh.userData.editable = true;
 
     this.scene.add(mesh);
-    this.setBoundingObjects(mesh);
 
     this.removeTmpObject();
   }
@@ -341,41 +341,56 @@ export class SceneInteractor {
     return null;
   }
 
-  private snapToSurface(
-    object: THREE.Object3D | THREE.Group,
-    hit: THREE.Intersection,
-  ) {
-    const point = hit.point.clone();
+  private snapToSurface(object: THREE.Object3D, hit: THREE.Intersection) {
     const normal =
       hit.face?.normal?.clone().transformDirection(hit.object.matrixWorld) ??
       new THREE.Vector3(0, 1, 0);
+
+    // rotate dependinf on hit normal
     const up = new THREE.Vector3(0, 1, 0);
     const q = new THREE.Quaternion().setFromUnitVectors(up, normal);
     object.quaternion.slerp(q, 0.2);
 
-    object.position.copy(point);
-
     const box = new THREE.Box3().setFromObject(object);
-    const offset = -box.min.dot(normal);
-    object.position.addScaledVector(normal, offset);
+    const support = new THREE.Vector3(
+      normal.x >= 0 ? box.min.x : box.max.x,
+      normal.y >= 0 ? box.min.y : box.max.y,
+      normal.z >= 0 ? box.min.z : box.max.z,
+    );
+
+    const correction = normal.dot(hit.point.clone().sub(support));
+
+    object.position.addScaledVector(normal, correction);
   }
 
   applySnapping(object: THREE.Object3D | null | undefined) {
     if (!object) return;
 
-    const origin = object.position.clone();
-    origin.y += 0.01;
-    const direction = new THREE.Vector3(0, -1, 0);
+    const box = new THREE.Box3().setFromObject(object);
+    const origin = new THREE.Vector3(
+      (box.min.x + box.max.x) / 2,
+      box.min.y + 0.01,
+      (box.min.z + box.max.z) / 2,
+    );
 
+    const direction = new THREE.Vector3(0, -1, 0);
     this.raycaster.set(origin, direction);
+
     const objectsToCheck = Array.from(this.intersectableMeshes).filter(
-      (obj) => obj !== object && !object.getObjectById(obj.id),
+      (obj) => obj !== object && !object.children.includes(obj),
     );
 
     const hits = this.raycaster.intersectObjects(objectsToCheck, false);
-
     if (!hits.length) return;
-    const hit = hits[0];
+
+    const hit = hits.find((h) => {
+      const n = h.face?.normal
+        ?.clone()
+        .transformDirection(h.object.matrixWorld);
+      return n && n.y > 0.5;
+    });
+
+    if (!hit) return;
 
     this.snapToSurface(object, hit);
   }
