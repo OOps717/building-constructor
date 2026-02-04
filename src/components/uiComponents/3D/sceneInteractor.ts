@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { getObj } from "../../assetLoader";
 import type { RefObject } from "react";
+import House from "./utils/house";
+import ShadowTextureManager from "./utils/shadowTextureManager";
 
 export class SceneInteractor {
   public scene: THREE.Scene;
@@ -13,6 +15,8 @@ export class SceneInteractor {
   public mouseNDC: THREE.Vector2;
   public tmpMesh: THREE.Mesh | THREE.Object3D | THREE.Group | null;
   public materials: THREE.Material[];
+  public shadowTextureManager: ShadowTextureManager;
+  public shadowsReceivables: Set<THREE.Mesh>;
   private intersectableMeshes: Set<THREE.Mesh>;
 
   constructor() {
@@ -30,6 +34,8 @@ export class SceneInteractor {
 
     this.tmpMesh = null;
     this.intersectableMeshes = new Set<THREE.Mesh>();
+    this.shadowsReceivables = new Set<THREE.Mesh>();
+    this.shadowTextureManager = new ShadowTextureManager();
 
     this.createScene();
   }
@@ -83,6 +89,38 @@ export class SceneInteractor {
       case "cylinder":
         geometry = new THREE.CylinderGeometry(3, 3, 4, 10);
         break;
+      case "plane":
+        geometry = new THREE.PlaneGeometry(4, 4);
+        break;
+      // Change this part when uiready
+      case "panel":
+        geometry = new THREE.PlaneGeometry(2.2, 1.2);
+        const points = geometry.getAttribute("position");
+        const vertexCount = points.count;
+        const colors = new Float32Array(vertexCount * 3);
+
+        const color = new THREE.Color(0x1e2a5a);
+        for (let i = 0; i < vertexCount; i++) {
+          colors[i * 3 + 0] = color.r;
+          colors[i * 3 + 1] = color.g;
+          colors[i * 3 + 2] = color.b;
+        }
+        geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+        const panelMaterial = new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          metalness: 0.6,
+          roughness: 0.25,
+          side: THREE.DoubleSide,
+        });
+        mesh = new THREE.Mesh(geometry, panelMaterial);
+        mesh.receiveShadow = true;
+        name
+          ? (mesh.name = name)
+          : (mesh.name = "primitive_" + Math.floor(Math.random() * 10000));
+        this.shadowsReceivables.add(mesh);
+        this.scene.add(mesh);
+        return mesh;
       default:
         geometry = new THREE.BufferGeometry();
         mesh = new THREE.Mesh();
@@ -90,6 +128,7 @@ export class SceneInteractor {
     }
 
     mesh = new THREE.Mesh(geometry, material ?? this.materials[0]);
+    mesh.castShadow = true;
     mesh.userData.editable = true;
     this.registerSelectableObject(mesh);
 
@@ -126,8 +165,14 @@ export class SceneInteractor {
     light.shadow.camera.far = 2000;
     this.scene.add(light);
 
-    const primitive = this.addBasicPrimitive("cube");
-    primitive.translateY(4);
+    const house = new House({});
+    this.registerSelectableObject(house);
+    house.panels.forEach((p) => this.shadowsReceivables.add(p));
+    this.scene.add(house);
+
+    const obstacle = this.addBasicPrimitive("cube");
+    this.registerSelectableObject(obstacle);
+    obstacle.position.copy(new THREE.Vector3(6, 1.5, 0));
 
     // Plane for Editor
     const planeGeometry = new THREE.PlaneGeometry(500, 500, 20, 20);

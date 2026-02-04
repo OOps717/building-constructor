@@ -58,6 +58,10 @@ export function initThree(params: scene3DControllers) {
     sceneHandler.handleClick(event, isDragging);
   });
 
+  renderer.domElement.addEventListener("wheel", async (event) => {
+    await sceneHandler.handleWheel();
+  });
+
   window.addEventListener("keydown", (event) => {
     sceneHandler.onKeyDown(event);
   });
@@ -86,15 +90,6 @@ export function initThree(params: scene3DControllers) {
       transformControlsRef.current.showX = false;
       transformControlsRef.current.showY = false;
       transformControlsRef.current.showZ = false;
-
-      // orbitControlsRef.current.addEventListener("start", () => {
-      //   console.log("dragging");
-      //   focusOnObjectRef.current = false;
-      // });
-
-      // orbitControlsRef.current.addEventListener("end", () => {
-      //   isOrbitDragging = false;
-      // });
 
       transformControlsRef.current.addEventListener("dragging-changed", (e) => {
         isDragging = e.value as boolean;
@@ -135,6 +130,54 @@ export function initThree(params: scene3DControllers) {
         focusOnObjectRef.current = false;
       }
     }
+
+    project.scene.updateMatrixWorld(true);
+    // TO CORRECT
+    // project.shadowTextureManager.renderShadowTexture(project.scene, renderer);
+    // Array.from(project.shadowsReceivables).forEach((receivable) => {
+    //   receivable.updateMatrixWorld(true);
+
+    //   const positionAttr = receivable.geometry.getAttribute("position");
+    //   const normalAttr = receivable.geometry.getAttribute("normal");
+    //   const colorAttr = receivable.geometry.getAttribute("color");
+
+    //   const positions = positionAttr.array as Float32Array;
+    //   const colors = colorAttr.array as Float32Array;
+
+    //   for (let v = 0; v < positionAttr.count; v++) {
+    //     const i3 = v * 3;
+
+    //     const normal = new THREE.Vector3(
+    //       normalAttr.array[i3 + 0],
+    //       normalAttr.array[i3 + 1],
+    //       normalAttr.array[i3 + 2],
+    //     ).transformDirection(receivable.matrixWorld);
+
+    //     const worldPoint = new THREE.Vector3(
+    //       positions[i3 + 0],
+    //       positions[i3 + 1],
+    //       positions[i3 + 2],
+    //     ).applyMatrix4(receivable.matrixWorld);
+    //     worldPoint.addScaledVector(normal, 0.05);
+
+    //     const inShadow = project.shadowTextureManager.isInShadow(worldPoint);
+
+    //     if (inShadow) {
+    //       // blue
+    //       colors[i3 + 0] = 1;
+    //       colors[i3 + 1] = 1;
+    //       colors[i3 + 2] = 1;
+    //     } else {
+    //       const color = new THREE.Color(0x1e2a5a);
+    //       colors[i3 + 0] = color.r;
+    //       colors[i3 + 1] = color.g;
+    //       colors[i3 + 2] = color.b;
+    //     }
+    //   }
+
+    //   colorAttr.needsUpdate = true;
+    // });
+
     renderer.render(project.scene, project.camera);
     requestAnimationFrame(animate);
   };
@@ -163,6 +206,9 @@ export function initThree(params: scene3DControllers) {
     renderer.domElement.removeEventListener("click", (event) =>
       sceneHandler.handleClick(event, isDragging),
     );
+    renderer.domElement.removeEventListener("wheel", async (event) => {
+      await sceneHandler.handleWheel();
+    });
     window.removeEventListener("keydown", (event) => {
       sceneHandler.onKeyDown(event);
     });

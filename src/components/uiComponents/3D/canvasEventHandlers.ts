@@ -84,31 +84,37 @@ export default class SceneHandler {
   }
 
   onPointerDown(event: PointerEvent, isDragging: boolean) {
-    if (isDragging) return;
-    const project = this.activeProjectRef.current;
-    if (!project) return;
+    if (event.buttons == 1) {
+      if (isDragging) return;
+      const project = this.activeProjectRef.current;
+      if (!project) return;
 
-    const selection = project.selectMeshToModify(
-      event,
-      this.renderer.domElement,
-    );
-    if (selection) {
-      if (
-        this.selectMeshRef.current !== selection &&
-        this.transformControlsRef.current
-      ) {
-        this.transformControlsRef.current.showX = false;
-        this.transformControlsRef.current.showY = false;
-        this.transformControlsRef.current.showZ = false;
-        this.pressCount = 0;
-        this.focusOnObjectRef.current = true;
+      const selection = project.selectMeshToModify(
+        event,
+        this.renderer.domElement,
+      );
+      if (selection) {
+        if (
+          this.selectMeshRef.current !== selection &&
+          this.transformControlsRef.current
+        ) {
+          this.transformControlsRef.current.showX = false;
+          this.transformControlsRef.current.showY = false;
+          this.transformControlsRef.current.showZ = false;
+          this.pressCount = 0;
+          this.focusOnObjectRef.current = true;
+        }
+
+        this.selectMeshRef.current = selection;
+
+        if (selection)
+          this.transformControlsRef.current?.attach(this.selectMeshRef.current);
       }
+    } else this.focusOnObjectRef.current = false;
+  }
 
-      this.selectMeshRef.current = selection;
-
-      if (selection)
-        this.transformControlsRef.current?.attach(this.selectMeshRef.current);
-    }
+  handleWheel() {
+    this.focusOnObjectRef.current = false;
   }
 
   handleClick(event: MouseEvent | PointerEvent, isDragging: boolean) {
@@ -130,8 +136,6 @@ export default class SceneHandler {
       )
         return;
       let nextMode: "translate" | "rotate" | "scale" | null = null;
-
-      console.log(this.pressCount);
 
       if (key === "t") nextMode = "translate";
       if (key === "r") nextMode = "rotate";

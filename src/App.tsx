@@ -203,6 +203,7 @@ function App() {
                     <span>{`Scene ${p.id.slice(0, 4)}`}</span>
                     <IconButton
                       size="small"
+                      component="span"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleCloseTab(p.id);
