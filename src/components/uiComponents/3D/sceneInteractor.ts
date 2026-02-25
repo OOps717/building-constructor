@@ -128,6 +128,7 @@ export class SceneInteractor {
     }
 
     mesh = new THREE.Mesh(geometry, material ?? this.materials[0]);
+    mesh.receiveShadow = true;
     mesh.castShadow = true;
     mesh.userData.editable = true;
     this.registerSelectableObject(mesh);
@@ -145,10 +146,10 @@ export class SceneInteractor {
     this.scene.background = new THREE.Color(0x404040);
 
     this.camera = new THREE.PerspectiveCamera(
-      60,
+      50,
       window.innerWidth / window.innerHeight,
       0.1,
-      2000,
+      200,
     );
     this.camera.position.set(20, 20, 20);
     this.camera.lookAt(0, 0, 0);
@@ -156,14 +157,16 @@ export class SceneInteractor {
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(20, 20, 20);
+    light.position.set(200, 200, 200);
     light.castShadow = true;
     light.shadow.mapSize.width = 1024;
     light.shadow.mapSize.height = 1024;
 
-    light.shadow.camera.near = 0.5;
-    light.shadow.camera.far = 2000;
+    light.target.position.set(0, 0, 0);
+    this.scene.add(light.target);
     this.scene.add(light);
+    light.target.updateMatrixWorld(true);
+    this.shadowTextureManager.setLight(light);
 
     const house = new House({});
     this.registerSelectableObject(house);
@@ -171,6 +174,7 @@ export class SceneInteractor {
     this.scene.add(house);
 
     const obstacle = this.addBasicPrimitive("cube");
+    obstacle.name = "obstacle";
     this.registerSelectableObject(obstacle);
     obstacle.position.copy(new THREE.Vector3(6, 1.5, 0));
 

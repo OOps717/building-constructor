@@ -20,6 +20,7 @@ export default class SceneHandler {
   notifySceneChanged: () => void;
   lastMode: "translate" | "rotate" | "scale" | null;
   pressCount: number;
+  isDragging: boolean;
 
   constructor(params: scene3DControllers) {
     this.container = params.container;
@@ -37,6 +38,7 @@ export default class SceneHandler {
 
     this.lastMode = null;
     this.pressCount = 0;
+    this.isDragging = false;
   }
 
   resize() {
@@ -83,9 +85,9 @@ export default class SceneHandler {
       );
   }
 
-  onPointerDown(event: PointerEvent, isDragging: boolean) {
-    if (event.buttons == 1) {
-      if (isDragging) return;
+  onPointerDown(event: PointerEvent) {
+    if (event.button === 0) {
+      if (this.isDragging) return;
       const project = this.activeProjectRef.current;
       if (!project) return;
 
@@ -106,9 +108,7 @@ export default class SceneHandler {
         }
 
         this.selectMeshRef.current = selection;
-
-        if (selection)
-          this.transformControlsRef.current?.attach(this.selectMeshRef.current);
+        this.transformControlsRef.current?.attach(selection);
       }
     } else this.focusOnObjectRef.current = false;
   }
@@ -117,11 +117,12 @@ export default class SceneHandler {
     this.focusOnObjectRef.current = false;
   }
 
-  handleClick(event: MouseEvent | PointerEvent, isDragging: boolean) {
+  handleClick(event: MouseEvent | PointerEvent, isDirty: RefObject<boolean>) {
     const project = this.activeProjectRef.current;
-    if (!project || isDragging) return;
+    if (!project || this.isDragging || !project.tmpMesh) return;
     project.dropMesh();
 
+    isDirty.current = true;
     this.notifySceneChanged();
     this.selectedToDropOBJRef.current = null;
     this.selectedToDropRef.current = null;

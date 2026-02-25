@@ -3,25 +3,23 @@ import * as THREE from "three";
 const SHADOW_SIZE = 1024;
 
 export default class ShadowTextureManager {
-  lightCamera: THREE.OrthographicCamera;
+  light!: THREE.DirectionalLight;
+  lightCamera!: THREE.OrthographicCamera;
+
   shadowTarget: THREE.WebGLRenderTarget;
-  shadowMaterial: THREE.ShaderMaterial;
+  depthMaterial: THREE.MeshDepthMaterial;
 
   depthBuffer: Uint8Array;
   lightViewProj: THREE.Matrix4;
 
+  private tmpVec4 = new THREE.Vector4();
+
   constructor() {
-    this.lightCamera = new THREE.OrthographicCamera(
-      -100,
-      100,
-      100,
-      -100,
-      0.1,
-      200,
-    );
-    this.lightCamera.position.set(10, 10, 10);
-    this.lightCamera.lookAt(0, 0, 0);
-    this.lightCamera.updateMatrixWorld(true);
+    // const d = 100;
+    // this.lightCamera = new THREE.OrthographicCamera(-d, d, d, -d, 0.1, 400);
+    // this.lightCamera.position.set(20, 20, 20);
+    // this.lightCamera.lookAt(0, 0, 0);
+    // this.lightCamera.updateMatrixWorld(true);
 
     this.shadowTarget = new THREE.WebGLRenderTarget(SHADOW_SIZE, SHADOW_SIZE, {
       format: THREE.RGBAFormat,
@@ -31,37 +29,25 @@ export default class ShadowTextureManager {
       depthBuffer: true,
     });
 
-    this.shadowMaterial = new THREE.ShaderMaterial({
-      vertexShader: `
-        varying vec4 vLightPos;
-
-        void main() {
-          vec4 worldPos = modelMatrix * vec4(position, 1.0);
-          vLightPos = projectionMatrix * viewMatrix * worldPos;
-          gl_Position = vLightPos;
-        }
-      `,
-      fragmentShader: `
-        precision highp float;
-
-        varying vec4 vLightPos;
-
-        void main() {
-          float depth = vLightPos.z / vLightPos.w; // NDC [-1,1]
-          depth = depth * 0.5 + 0.5;               // [0,1]
-          gl_FragColor = vec4(depth, depth, depth, 1.0);
-        }
-      `,
+    this.depthMaterial = new THREE.MeshDepthMaterial({
+      depthPacking: THREE.RGBADepthPacking,
     });
 
     this.depthBuffer = new Uint8Array(SHADOW_SIZE * SHADOW_SIZE * 4);
-
     this.lightViewProj = new THREE.Matrix4();
+
+    // this.updateLightMatrices();
+  }
+
+  setLight(light: THREE.DirectionalLight) {
+    this.lightCamera = light.shadow.camera as THREE.OrthographicCamera;
     this.updateLightMatrices();
   }
 
   updateLightMatrices() {
+    this.lightCamera.updateProjectionMatrix();
     this.lightCamera.updateMatrixWorld(true);
+
     this.lightViewProj
       .copy(this.lightCamera.projectionMatrix)
       .multiply(this.lightCamera.matrixWorldInverse);
@@ -69,6 +55,7 @@ export default class ShadowTextureManager {
 
   renderShadowTexture(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
     this.updateLightMatrices();
+
     const originalMaterials = new Map<
       THREE.Mesh,
       THREE.Material | THREE.Material[]
@@ -77,7 +64,7 @@ export default class ShadowTextureManager {
     scene.traverse((obj) => {
       if (obj instanceof THREE.Mesh && obj.castShadow) {
         originalMaterials.set(obj, obj.material);
-        obj.material = this.shadowMaterial;
+        obj.material = this.depthMaterial;
       }
     });
 
@@ -88,7 +75,8 @@ export default class ShadowTextureManager {
 
     scene.traverse((obj) => {
       if (obj instanceof THREE.Mesh && obj.castShadow) {
-        obj.material = originalMaterials.get(obj);
+        const original = originalMaterials.get(obj);
+        if (original) obj.material = original;
       }
     });
 
@@ -103,43 +91,43 @@ export default class ShadowTextureManager {
   }
 
   worldToShadowUV(worldPos: THREE.Vector3) {
-    const p = new THREE.Vector4(worldPos.x, worldPos.y, worldPos.z, 1.0);
+    this.tmpVec4.set(worldPos.x, worldPos.y, worldPos.z, 1.0);
+    this.tmpVec4.applyMatrix4(this.lightViewProj);
 
-    p.applyMatrix4(this.lightViewProj);
-    p.divideScalar(p.w);
+    if (this.tmpVec4.w !== 0) this.tmpVec4.divideScalar(this.tmpVec4.w);
 
     return {
-      u: p.x * 0.5 + 0.5,
-      v: p.y * 0.5 + 0.5,
-      depth: p.z * 0.5 + 0.5,
+      u: this.tmpVec4.x * 0.5 + 0.5,
+      v: this.tmpVec4.y * 0.5 + 0.5,
+      depth: this.tmpVec4.z * 0.5 + 0.5,
     };
   }
 
   getDepthAt(x: number, y: number): number {
-    const index = (y * SHADOW_SIZE + x) * 4;
-    return this.depthBuffer[index] / 255.0;
+    const i = (y * SHADOW_SIZE + x) * 4;
+
+    const r = this.depthBuffer[i + 0] / 255;
+    const g = this.depthBuffer[i + 1] / 255;
+    const b = this.depthBuffer[i + 2] / 255;
+    const a = this.depthBuffer[i + 3] / 255;
+
+    // ⭐ Правильная распаковка RGBADepthPacking
+    return r + g / 256.0 + b / (256.0 * 256.0) + a / (256.0 * 256.0 * 256.0);
   }
 
-  isInShadow(worldPos: THREE.Vector3, bias = 0.03): boolean {
+  isInShadow(worldPos: THREE.Vector3, bias = 0.003): boolean {
     const uvz = this.worldToShadowUV(worldPos);
 
-    // Outside shadow map
-    if (
-      uvz.u < 0 ||
-      uvz.u > 1 ||
-      uvz.v < 0 ||
-      uvz.v > 1 ||
-      uvz.depth < 0 ||
-      uvz.depth > 1
-    ) {
-      return false;
-    }
+    if (uvz.u < 0 || uvz.u > 1 || uvz.v < 0 || uvz.v > 1) return false;
 
-    const x = Math.min(SHADOW_SIZE - 1, Math.floor(uvz.u * SHADOW_SIZE));
-    const y = Math.min(SHADOW_SIZE - 1, Math.floor(uvz.v * SHADOW_SIZE));
+    const x = Math.min(SHADOW_SIZE - 1, (uvz.u * SHADOW_SIZE) | 0);
+    const y = Math.min(SHADOW_SIZE - 1, (uvz.v * SHADOW_SIZE) | 0);
+
     const yFlipped = SHADOW_SIZE - 1 - y;
 
-    const depthFromMap = this.getDepthAt(x, yFlipped);
-    return uvz.depth > depthFromMap + bias;
+    const mapDepth = this.getDepthAt(x, yFlipped);
+
+    console.log("uvz:", uvz.depth, "map:", mapDepth + bias);
+    return uvz.depth > mapDepth + bias;
   }
 }

@@ -20,6 +20,7 @@ export interface scene3DControllers {
   selectMeshRef: RefObject<THREE.Object3D | null>;
   isSnappingRef: RefObject<boolean>;
   focusOnObjectRef: RefObject<boolean>;
+  isDirty: RefObject<boolean>;
   notifySceneChanged: () => void;
 }
 
@@ -32,40 +33,50 @@ export function initThree(params: scene3DControllers) {
     selectMeshRef,
     focusOnObjectRef,
     isSnappingRef,
+    isDirty,
     notifySceneChanged,
   } = params;
 
   let lastCamera: THREE.Camera | null = null;
   let lastScene: THREE.Scene | null = null;
   let running = true;
-  let isDragging = false;
 
   const sceneHandler = new SceneHandler(params);
 
-  window.addEventListener("resize", () => {
-    sceneHandler.resize();
-  });
+  const onPointerDown = (event: PointerEvent) => {
+    sceneHandler.onPointerDown(event);
+  };
 
-  renderer.domElement.addEventListener("pointerdown", (event) => {
-    sceneHandler.onPointerDown(event, isDragging);
-  });
+  const onPointerMove = (event: PointerEvent) => {
+    sceneHandler.onPointerMove(event);
+  };
 
-  renderer.domElement.addEventListener("pointermove", async (event) => {
-    await sceneHandler.onPointerMove(event);
-  });
+  const onClick = (event: MouseEvent) => {
+    sceneHandler.handleClick(event, isDirty);
+  };
 
-  renderer.domElement.addEventListener("click", (event) => {
-    sceneHandler.handleClick(event, isDragging);
-  });
+  const onWheel = (event: WheelEvent) => {
+    sceneHandler.handleWheel();
+  };
 
-  renderer.domElement.addEventListener("wheel", async (event) => {
-    await sceneHandler.handleWheel();
-  });
-
-  window.addEventListener("keydown", (event) => {
+  const onKeyDown = (event: KeyboardEvent) => {
     sceneHandler.onKeyDown(event);
-  });
+  };
 
+  const onResize = () => {
+    sceneHandler.resize();
+  };
+
+  renderer.domElement.addEventListener("pointerdown", onPointerDown);
+  renderer.domElement.addEventListener("pointermove", onPointerMove);
+  renderer.domElement.addEventListener("click", onClick);
+  renderer.domElement.addEventListener("wheel", onWheel);
+  window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("resize", onResize);
+
+  const normal = new THREE.Vector3();
+  const worldPoint = new THREE.Vector3();
+  const color = new THREE.Color(0x1e2a5a);
   const animate = () => {
     if (!running) return;
 
@@ -92,14 +103,16 @@ export function initThree(params: scene3DControllers) {
       transformControlsRef.current.showZ = false;
 
       transformControlsRef.current.addEventListener("dragging-changed", (e) => {
-        isDragging = e.value as boolean;
+        sceneHandler.isDragging = e.value as boolean;
         if (orbitControlsRef.current)
           orbitControlsRef.current.enabled = !e.value;
       });
 
       transformControlsRef.current.addEventListener("objectChange", () => {
-        if (isDragging && isSnappingRef.current)
+        if (sceneHandler.isDragging && isSnappingRef.current)
           project.applySnapping(transformControlsRef.current?.object);
+        if (transformControlsRef.current?.object.castShadow)
+          isDirty.current = true;
       });
 
       const gizmo = transformControlsRef.current.getHelper();
@@ -132,51 +145,53 @@ export function initThree(params: scene3DControllers) {
     }
 
     project.scene.updateMatrixWorld(true);
-    // TO CORRECT
-    // project.shadowTextureManager.renderShadowTexture(project.scene, renderer);
-    // Array.from(project.shadowsReceivables).forEach((receivable) => {
-    //   receivable.updateMatrixWorld(true);
+    if (isDirty.current) {
+      project.shadowTextureManager.renderShadowTexture(project.scene, renderer);
+      Array.from(project.shadowsReceivables).forEach((receivable) => {
+        receivable.updateMatrixWorld(true);
 
-    //   const positionAttr = receivable.geometry.getAttribute("position");
-    //   const normalAttr = receivable.geometry.getAttribute("normal");
-    //   const colorAttr = receivable.geometry.getAttribute("color");
+        const positionAttr = receivable.geometry.getAttribute("position");
+        const normalAttr = receivable.geometry.getAttribute("normal");
+        const colorAttr = receivable.geometry.getAttribute("color");
 
-    //   const positions = positionAttr.array as Float32Array;
-    //   const colors = colorAttr.array as Float32Array;
+        const positions = positionAttr.array as Float32Array;
+        const colors = colorAttr.array as Float32Array;
 
-    //   for (let v = 0; v < positionAttr.count; v++) {
-    //     const i3 = v * 3;
+        for (let v = 0; v < positionAttr.count; v++) {
+          const i3 = v * 3;
 
-    //     const normal = new THREE.Vector3(
-    //       normalAttr.array[i3 + 0],
-    //       normalAttr.array[i3 + 1],
-    //       normalAttr.array[i3 + 2],
-    //     ).transformDirection(receivable.matrixWorld);
+          normal
+            .set(
+              normalAttr.array[i3 + 0],
+              normalAttr.array[i3 + 1],
+              normalAttr.array[i3 + 2],
+            )
+            .transformDirection(receivable.matrixWorld);
 
-    //     const worldPoint = new THREE.Vector3(
-    //       positions[i3 + 0],
-    //       positions[i3 + 1],
-    //       positions[i3 + 2],
-    //     ).applyMatrix4(receivable.matrixWorld);
-    //     worldPoint.addScaledVector(normal, 0.05);
+          worldPoint
+            .set(positions[i3 + 0], positions[i3 + 1], positions[i3 + 2])
+            .applyMatrix4(receivable.matrixWorld);
 
-    //     const inShadow = project.shadowTextureManager.isInShadow(worldPoint);
+          // worldPoint.addScaledVector(normal, 0.001);
+          const inShadow = project.shadowTextureManager.isInShadow(worldPoint);
+          if (inShadow) {
+            // blue
+            colors[i3 + 0] = 0;
+            colors[i3 + 1] = 1;
+            colors[i3 + 2] = 0;
+          } else {
+            colors[i3 + 0] = color.r;
+            colors[i3 + 1] = color.g;
+            colors[i3 + 2] = color.b;
+          }
+        }
 
-    //     if (inShadow) {
-    //       // blue
-    //       colors[i3 + 0] = 1;
-    //       colors[i3 + 1] = 1;
-    //       colors[i3 + 2] = 1;
-    //     } else {
-    //       const color = new THREE.Color(0x1e2a5a);
-    //       colors[i3 + 0] = color.r;
-    //       colors[i3 + 1] = color.g;
-    //       colors[i3 + 2] = color.b;
-    //     }
-    //   }
+        colorAttr.needsUpdate = true;
+      });
 
-    //   colorAttr.needsUpdate = true;
-    // });
+      console.log("--------------------");
+      isDirty.current = false;
+    }
 
     renderer.render(project.scene, project.camera);
     requestAnimationFrame(animate);
@@ -197,24 +212,12 @@ export function initThree(params: scene3DControllers) {
     }
     transformControlsRef.current?.dispose();
     transformControlsRef.current = null;
-    renderer.domElement.removeEventListener("pointerdown", (event) => {
-      sceneHandler.onPointerDown(event, isDragging);
-    });
-    renderer.domElement.removeEventListener("pointermove", async (event) => {
-      await sceneHandler.onPointerMove(event);
-    });
-    renderer.domElement.removeEventListener("click", (event) =>
-      sceneHandler.handleClick(event, isDragging),
-    );
-    renderer.domElement.removeEventListener("wheel", async (event) => {
-      await sceneHandler.handleWheel();
-    });
-    window.removeEventListener("keydown", (event) => {
-      sceneHandler.onKeyDown(event);
-    });
-    window.removeEventListener("resize", () => {
-      sceneHandler.resize();
-    });
+    renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+    renderer.domElement.removeEventListener("pointermove", onPointerMove);
+    renderer.domElement.removeEventListener("click", onClick);
+    renderer.domElement.removeEventListener("wheel", onWheel);
+    window.removeEventListener("keydown", onKeyDown);
+    window.removeEventListener("resize", onResize);
   };
   return disposeScene;
 }

@@ -38,6 +38,7 @@ function Scene3D(props: Props) {
   const selectMeshRef = useRef<THREE.Object3D | null>(null);
   const isSnappingRef = useRef<boolean>(false);
   const threeContainerRef = useRef<HTMLDivElement | null>(null);
+  const isDirty = useRef<boolean>(true);
 
   const handleSwitchChange = (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -71,6 +72,7 @@ function Scene3D(props: Props) {
       selectMeshRef,
       focusOnObjectRef,
       isSnappingRef,
+      isDirty,
       notifySceneChanged,
     });
     return cleanUp;

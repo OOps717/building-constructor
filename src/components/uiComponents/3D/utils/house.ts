@@ -67,10 +67,10 @@ export default class House extends THREE.Object3D {
     const maxOffset = this.roofSize.x / 2;
 
     this.panels = [];
-    this.createPanelOnRoof(
-      new THREE.Vector3(maxOffset, -this.roofSize.y / 2, -maxOffset),
-      this.roofSize.y * 0.5,
-    );
+    // this.createPanelOnRoof(
+    //   new THREE.Vector3(maxOffset, -this.roofSize.y / 2, -maxOffset),
+    //   this.roofSize.y * 0.5,
+    // );
     this.createPanelOnRoof(
       new THREE.Vector3(maxOffset, -this.roofSize.y / 2, maxOffset),
       this.roofSize.y * 0.5,
@@ -96,7 +96,7 @@ export default class House extends THREE.Object3D {
   }
 
   createPanelOnRoof(pointOnLowerEdge: THREE.Vector3, height: number) {
-    const panelGeometry = new THREE.PlaneGeometry(2.2, 1.2);
+    const panelGeometry = new THREE.PlaneGeometry(2.2, 1.2, 1, 1);
     const points = panelGeometry.getAttribute("position");
     const vertexCount = points.count;
     const colors = new Float32Array(vertexCount * 3);
