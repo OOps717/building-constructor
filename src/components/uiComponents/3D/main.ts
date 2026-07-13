@@ -55,7 +55,7 @@ export function initThree(params: scene3DControllers) {
     sceneHandler.handleClick(event, isDirty);
   };
 
-  const onWheel = (event: WheelEvent) => {
+  const onWheel = (_event: WheelEvent) => {
     sceneHandler.handleWheel();
   };
 

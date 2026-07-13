@@ -161,6 +161,12 @@ export class SceneInteractor {
     light.castShadow = true;
     light.shadow.mapSize.width = 1024;
     light.shadow.mapSize.height = 1024;
+    light.shadow.camera.left = -30;
+    light.shadow.camera.right = 30;
+    light.shadow.camera.top = 30;
+    light.shadow.camera.bottom = -30;
+    light.shadow.camera.near = 0.1;
+    light.shadow.camera.far = 500;
 
     light.target.position.set(0, 0, 0);
     this.scene.add(light.target);

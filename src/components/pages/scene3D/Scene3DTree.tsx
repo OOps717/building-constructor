@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 import { styled, alpha } from "@mui/material/styles";
 import type { SceneInteractor } from "../../uiComponents/3D/sceneInteractor";
 import { EditableTypography } from "../../uiComponents/UI/EditableTypography";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 type SceneNode = {
   id: string;

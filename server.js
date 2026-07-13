@@ -6,24 +6,29 @@ import projectRouter from "./routes/project.routes.js";
 import RedisStore from "rate-limit-redis";
 import Redis from "ioredis";
 import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 
-let limiter;
-try {
+const limiterOptions = {
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+};
+
+let limiter = rateLimit(limiterOptions);
+
+if (process.env.REDIS_HOST) {
   const redis = new Redis({
-    host: "localhost", // или redis
-    port: 5432,
+    host: process.env.REDIS_HOST,
+    port: Number(process.env.REDIS_PORT ?? 6379),
   });
+
   redis.on("error", (err) => {
     console.warn("Redis error:", err.message);
   });
 
   limiter = rateLimit({
     store: new RedisStore({ sendCommand: (...args) => redis.call(...args) }),
-    windowMs: 15 * 60 * 1000,
-    max: 100,
+    ...limiterOptions,
   });
-} catch {
-  console.warn("Redis disabled");
 }
 
 const PORT = process.env.PORT || 3000;
@@ -42,9 +47,8 @@ app.use("/api/home", projectRouter);
 
 const distPath = path.join(__dirname, "dist");
 app.use(express.static(distPath));
-app.use((req, res, next) => {
+app.use((req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
-  next();
 });
 
 app.use((req, res) => {
@@ -54,6 +58,11 @@ app.use((req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log("Server running on http://localhost:3000");
+app.listen(PORT, (err) => {
+  if (err) {
+    console.error("Failed to start server:", err);
+    process.exit(1);
+  }
+
+  console.log(`Server running on http://localhost:${PORT}`);
 });

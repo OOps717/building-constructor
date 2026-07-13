@@ -117,7 +117,7 @@ export default class SceneHandler {
     this.focusOnObjectRef.current = false;
   }
 
-  handleClick(event: MouseEvent | PointerEvent, isDirty: RefObject<boolean>) {
+  handleClick(_event: MouseEvent | PointerEvent, isDirty: RefObject<boolean>) {
     const project = this.activeProjectRef.current;
     if (!project || this.isDragging || !project.tmpMesh) return;
     project.dropMesh();

@@ -13,14 +13,9 @@ export default class ShadowTextureManager {
   lightViewProj: THREE.Matrix4;
 
   private tmpVec4 = new THREE.Vector4();
+  private originalClearColor = new THREE.Color();
 
   constructor() {
-    // const d = 100;
-    // this.lightCamera = new THREE.OrthographicCamera(-d, d, d, -d, 0.1, 400);
-    // this.lightCamera.position.set(20, 20, 20);
-    // this.lightCamera.lookAt(0, 0, 0);
-    // this.lightCamera.updateMatrixWorld(true);
-
     this.shadowTarget = new THREE.WebGLRenderTarget(SHADOW_SIZE, SHADOW_SIZE, {
       format: THREE.RGBAFormat,
       type: THREE.UnsignedByteType,
@@ -40,12 +35,13 @@ export default class ShadowTextureManager {
   }
 
   setLight(light: THREE.DirectionalLight) {
+    this.light = light;
     this.lightCamera = light.shadow.camera as THREE.OrthographicCamera;
     this.updateLightMatrices();
   }
 
   updateLightMatrices() {
-    this.lightCamera.updateProjectionMatrix();
+    this.light.shadow.updateMatrices(this.light);
     this.lightCamera.updateMatrixWorld(true);
 
     this.lightViewProj
@@ -54,12 +50,16 @@ export default class ShadowTextureManager {
   }
 
   renderShadowTexture(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
+    if (!this.light || !this.lightCamera) return;
+
     this.updateLightMatrices();
 
     const originalMaterials = new Map<
       THREE.Mesh,
       THREE.Material | THREE.Material[]
     >();
+    const originalRenderTarget = renderer.getRenderTarget();
+    const originalClearAlpha = renderer.getClearAlpha();
 
     scene.traverse((obj) => {
       if (obj instanceof THREE.Mesh && obj.castShadow) {
@@ -68,10 +68,13 @@ export default class ShadowTextureManager {
       }
     });
 
+    renderer.getClearColor(this.originalClearColor);
+    renderer.setClearColor(0xffffff, 1);
     renderer.setRenderTarget(this.shadowTarget);
     renderer.clear();
     renderer.render(scene, this.lightCamera);
-    renderer.setRenderTarget(null);
+    renderer.setRenderTarget(originalRenderTarget);
+    renderer.setClearColor(this.originalClearColor, originalClearAlpha);
 
     scene.traverse((obj) => {
       if (obj instanceof THREE.Mesh && obj.castShadow) {
@@ -127,7 +130,6 @@ export default class ShadowTextureManager {
 
     const mapDepth = this.getDepthAt(x, yFlipped);
 
-    console.log("uvz:", uvz.depth, "map:", mapDepth + bias);
     return uvz.depth > mapDepth + bias;
   }
 }

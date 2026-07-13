@@ -1,4 +1,5 @@
 import db from "../db.js";
+import { v4 as uuidv4 } from "uuid";
 
 class ProjectController {
   async createProject(req, res) {
@@ -9,9 +10,10 @@ class ProjectController {
     }
 
     const projectId = uuidv4();
-    const client = await pool.connect();
+    let client;
 
     try {
+      client = await db.connect();
       await client.query("BEGIN");
       await client.query(
         `
@@ -50,21 +52,16 @@ class ProjectController {
         name,
       });
     } catch (err) {
-      await client.query("ROLLBACK");
+      if (client) await client.query("ROLLBACK");
       console.error("createProject error:", err);
       return res.status(500).json({ error: "Failed to create project" });
     } finally {
-      client.release();
+      client?.release();
     }
   }
 
   async getOneSaving(req, res) {
-    try {
-    } catch (err) {
-      await client.query("ROLLBACK");
-      console.error(err);
-      res.status(500).json({ error: "DB error" });
-    }
+    res.status(501).json({ error: "getOneSaving is not implemented yet" });
   }
 
   async getLatestSaving(req, res) {
@@ -109,21 +106,15 @@ class ProjectController {
   async getAllProjects(req, res) {
     try {
       const projects = await db.query("SELECT * FROM projects");
-      res.json(projects);
+      res.json(projects.rows);
     } catch (err) {
-      await client.query("ROLLBACK");
       console.error(err);
       res.status(500).json({ error: "DB error" });
     }
   }
 
   async updateSaving(req, res) {
-    try {
-    } catch (err) {
-      await client.query("ROLLBACK");
-      console.error(err);
-      res.status(500).json({ error: "DB error" });
-    }
+    res.status(501).json({ error: "updateSaving is not implemented yet" });
   }
 
   async deleteSaving(req, res) {
@@ -134,13 +125,10 @@ class ProjectController {
         .status(400)
         .json({ error: "Project id is not provided to delete" });
     }
-    const client = await pool.connect();
-
     try {
       await db.query("DELETE FROM projects WHERE id=$1", [id]);
       res.status(200).json({ success: true });
     } catch (err) {
-      await client.query("ROLLBACK");
       console.error(err);
       res.status(500).json({ error: "DB error" });
     }

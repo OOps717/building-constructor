@@ -1,7 +1,5 @@
 import * as THREE from "three";
 
-const SHADOW_SIZE = 1024;
-
 interface HouseInterface {
   houseSize?: THREE.Vector3;
   roofSize?: THREE.Vector2; // x = radius, y = height

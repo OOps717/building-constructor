@@ -9,12 +9,6 @@ import ViewInArIcon from "@mui/icons-material/ViewInAr";
 import MenuIcon from "@mui/icons-material/Menu";
 import type { SceneInteractor } from "../../uiComponents/3D/sceneInteractor";
 
-function savePreview(renderer: THREE.WebGLRenderer) {
-  const canvas = renderer.domElement;
-  const preview = canvas.toDataURL("image/png");
-  localStorage.setItem("preview", preview);
-}
-
 function saveArrayBuffer(buffer: ArrayBuffer, filename: string) {
   const blob = new Blob([buffer], { type: "application/octet-stream" });
   const link = document.createElement("a");
@@ -38,28 +32,6 @@ function exportSceneGLB(scene: THREE.Scene) {
     (error) => console.error(error),
     {
       binary: true, // ← ВАЖНО
-    },
-  );
-}
-
-function exportSceneGLTF(scene: THREE.Scene) {
-  const exporter = new GLTFExporter();
-  exporter.parse(
-    scene,
-    (result) => {
-      const gltf = JSON.stringify(result, null, 2);
-      const blob = new Blob([gltf], { type: "application/json" });
-
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "scene.gltf";
-      link.click();
-
-      URL.revokeObjectURL(link.href);
-    },
-    (error) => console.error(error),
-    {
-      binary: false,
     },
   );
 }

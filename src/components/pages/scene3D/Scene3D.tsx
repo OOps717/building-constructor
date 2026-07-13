@@ -41,7 +41,7 @@ function Scene3D(props: Props) {
   const isDirty = useRef<boolean>(true);
 
   const handleSwitchChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
+    _event: React.ChangeEvent<HTMLInputElement>,
     checked: boolean,
   ) => {
     isSnappingRef.current = checked;
